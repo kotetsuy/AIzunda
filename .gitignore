@@ -1,0 +1,99 @@
+# ================================
+# secrets / local settings
+# ================================
+.env
+.env.*
+*.env.local
+.claude/
+.claude-*
+
+# ================================
+# OS / editor
+# ================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ================================
+# Python
+# ================================
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ================================
+# 大きすぎる / 配布不可のアセット
+# ================================
+
+# Qwen / Whisper などの LLM/STT 重み
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.onnx
+
+# ずんだもん VRM (VN3 ライセンス、各自公式から DL する想定)
+zundavrm/
+zundavrm.zip
+
+# ROCm 用 torch wheels (約 1.9 GB、ユーザ環境で個別に用意する)
+wheels/
+
+# 旧実装 (214 MB)。必要なら別リポで管理
+talkinghead.old/
+
+# whisperX-rocm はフォークなので別リポで管理する想定
+whisperX-rocm/
+
+# ================================
+# 別プロジェクトへの symlink (clone 先では壊れる)
+# ================================
+/ctranslate2-rocm
+/llama.cpp
+/qwen3.6
+
+# ================================
+# ランタイム出力 / キャプチャ
+# ================================
+output/
+voicevox/*.wav
+voicevox/query.json
+
+# vtt の録音キャプチャと転写ログ
+vtt/captures/
+vtt/transcripts.jsonl
+vtt/*.wav
+
+# ログ
+*.log
+logs/
+
+# ================================
+# 背景画像 (各自の好みで差し替える想定)
+# README の手順で Picsum から再取得できる。
+# 画像をリポに入れたい場合はこのブロックを消す。
+# ================================
+images/*.jpg
+images/*.jpeg
+images/*.png
+images/*.webp
+images/*.gif
+
+# ================================
+# node / フロントの生成物 (将来的な備え)
+# ================================
+node_modules/
+dist/
+build/
+.cache/

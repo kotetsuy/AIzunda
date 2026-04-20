@@ -1,0 +1,156 @@
+# ttllm — WhisperX ↔ llama.cpp bridge
+
+A minimal FastAPI bridge that wires WhisperX (speech recognition) to llama.cpp
+(`llama-server`). Post audio to it and it returns transcription plus an LLM
+reply in one shot. Designed to be called directly from AIzunda front-ends like
+`talkinghead` / `zundavrm`.
+
+## Layout
+
+```
+ttllm/
+├── server.py    # FastAPI app
+├── install.sh   # adds extra deps to the whisperX-rocm venv
+├── run.sh       # sets ROCm env vars and starts uvicorn
+└── README.md    # this file
+```
+
+It runs inside the existing WhisperX-ROCm venv (`~/venv/whisperx-rocm`) so you
+don't have to install torch-ROCm / ctranslate2-rocm twice. `~/AIzunda/whisperX-rocm/`
+is the source checkout — the actual venv is separate.
+
+## Prerequisites
+
+- WhisperX-ROCm installed in `~/venv/whisperx-rocm`
+  (whisperx / torch 2.9+rocm / ctranslate2 / faster-whisper / pyannote.audio)
+  (source lives at `~/AIzunda/whisperX-rocm`, but the actual venv is
+  `~/venv/whisperx-rocm`)
+- `~/AIzunda/llama.cpp/build/bin/llama-server` built
+- Qwen3.6 weights: `~/AIzunda/qwen3.6/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf`
+
+## Setup
+
+```bash
+cd ~/AIzunda/ttllm
+./install.sh
+```
+
+This adds `fastapi` / `uvicorn` / `httpx` / `python-multipart` / `pydantic` to
+the whisperX venv.
+
+## Launch
+
+**1. Start llama-server** (separate terminal)
+
+```bash
+cd ~/AIzunda/llama.cpp/build/bin
+./llama-server \
+    -m ~/AIzunda/qwen3.6/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf \
+    --host 127.0.0.1 --port 8080 \
+    -ngl 99 -c 8192
+```
+
+**2. Start the bridge**
+
+```bash
+cd ~/AIzunda/ttllm
+./run.sh
+```
+
+Listens on `http://0.0.0.0:8001` by default. Swagger UI at
+`http://localhost:8001/docs`.
+
+## Endpoints
+
+| Method | Path            | Purpose |
+|--------|-----------------|---------|
+| GET    | `/health`       | Self / WhisperX / llama-server reachability |
+| POST   | `/warmup`       | Preload the WhisperX model (eliminates first-call latency) |
+| POST   | `/transcribe`   | Audio → text (no LLM) |
+| POST   | `/chat`         | Text → LLM reply |
+| POST   | `/voice_chat`   | Audio → transcription + LLM reply in one call |
+
+### `/voice_chat` (multipart/form-data)
+
+| Field         | Type                     | Default          | Description |
+|---------------|--------------------------|------------------|-------------|
+| `audio`       | file                     | —                | wav / mp3 / m4a etc. |
+| `system`      | str                      | Zundamon persona | Override system prompt |
+| `history`     | str (JSON list)          | `[]`             | `[{"role":"user","content":"..."}]` format |
+| `temperature` | float                    | `0.7`            | |
+| `max_tokens`  | int                      | `512`            | |
+
+Response:
+
+```json
+{ "transcript": "こんにちは", "reply": "こんにちはなのだ！" }
+```
+
+### `/chat` (application/json)
+
+```json
+{
+  "text": "自己紹介して",
+  "history": [],
+  "system": null,
+  "temperature": 0.7,
+  "max_tokens": 512
+}
+```
+
+### Usage examples
+
+```bash
+# Audio file → reply, all in one call
+curl -X POST http://localhost:8001/voice_chat \
+    -F "audio=@sample.wav"
+
+# Text-only LLM call
+curl -X POST http://localhost:8001/chat \
+    -H 'Content-Type: application/json' \
+    -d '{"text":"ずんだ餅について教えてなのだ"}'
+
+# Model warmup (eliminates first-call latency)
+curl -X POST http://localhost:8001/warmup
+```
+
+## Environment variables
+
+| Variable                | Default                         | Description |
+|-------------------------|---------------------------------|-------------|
+| `WHISPER_MODEL`         | `large-v3`                      | WhisperX model |
+| `WHISPER_LANGUAGE`      | `ja`                            | Recognition language |
+| `WHISPER_COMPUTE_TYPE`  | `float16`                       | `float16` / `int8_float16` etc. |
+| `WHISPER_DEVICE`        | `cuda`                          | Routed to GPU through ROCm's HIP layer |
+| `WHISPER_BATCH_SIZE`    | `8`                             | |
+| `WHISPER_VAD_METHOD`    | `silero`                        | `silero` / `pyannote` |
+| `LLAMA_SERVER_URL`      | `http://localhost:8080`         | llama-server URL |
+| `LLAMA_TIMEOUT`         | `120`                           | seconds |
+| `SYSTEM_PROMPT`         | Zundamon persona                | Default system prompt |
+| `BRIDGE_HOST`           | `0.0.0.0`                       | |
+| `BRIDGE_PORT`           | `8001`                          | |
+| `WHISPERX_VENV`         | `~/venv/whisperx-rocm`          | Path to the shared venv (where whisperx / torch-ROCm / ctranslate2 live) |
+
+## Calling from the front-end
+
+CORS is wide open, so browser front-ends (`talkinghead` / `zundavrm`) can `fetch`
+directly. Example:
+
+```javascript
+const fd = new FormData();
+fd.append("audio", blob, "utterance.wav");
+const res = await fetch("http://localhost:8001/voice_chat", {
+  method: "POST",
+  body: fd,
+});
+const { transcript, reply } = await res.json();
+```
+
+## Known caveats
+
+- Audio longer than 60 seconds can memory-fault on ROCm (see `~/CLAUDE.md`).
+  Chunk long audio on the client side.
+- `/chat` and `/voice_chat` are stateless. Keep conversation history on the
+  caller and pass it via `history`.
+- TTS (VOICEVOX) is out of scope for this bridge. Synthesize from `reply`
+  downstream.
