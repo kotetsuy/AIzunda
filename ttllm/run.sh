@@ -7,7 +7,7 @@ export ROCM_PATH="${ROCM_PATH:-/opt/rocm}"
 export HIP_VISIBLE_DEVICES="${HIP_VISIBLE_DEVICES:-0}"
 export LD_LIBRARY_PATH="/usr/local/lib:/opt/rocm/lib:/opt/rocm/lib/llvm/lib:${LD_LIBRARY_PATH:-}"
 
-VENV="${WHISPERX_VENV:-/home/$USER/venv/whisperx-rocm}"
+VENV="${WHISPERX_VENV:-/home/$USER/AIzunda/whisperX-rocm/.venv}"
 HOST="${BRIDGE_HOST:-0.0.0.0}"
 PORT="${BRIDGE_PORT:-8001}"
 

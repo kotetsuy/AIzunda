@@ -12,12 +12,11 @@ ttllm/
 └── READMEJ.md   # このファイル
 ```
 
-WhisperX-ROCm がインストール済みの venv（`~/venv/whisperx-rocm`）を共有して動かすので、torch-ROCm / ctranslate2-rocm を二重に入れる必要はありません。`~/AIzunda/whisperX-rocm/` はソース側の置き場で、実体の venv とは別物です。
+WhisperX-ROCm がインストール済みの venv（`~/AIzunda/whisperx-rocm/.venv`）を共有して動かすので、torch-ROCm / ctranslate2-rocm を二重に入れる必要はありません。
 
 ## 前提
 
-- `~/venv/whisperx-rocm` に WhisperX-ROCm 一式（whisperx / torch 2.9+rocm / ctranslate2 / faster-whisper / pyannote.audio）が入っていること
-  （ソースは `~/AIzunda/whisperX-rocm` にあるが、実際の venv は `~/venv/whisperx-rocm` 側）
+- `~/AIzunda/whisperx-rocm/.venv` に WhisperX-ROCm 一式（whisperx / torch 2.9+rocm / ctranslate2 / faster-whisper / pyannote.audio）が入っていること
 - `~/AIzunda/llama.cpp/build/bin/llama-server` がビルド済みであること
 - Qwen3.6 モデル: `~/AIzunda/qwen3.6/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf`
 

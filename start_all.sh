@@ -15,6 +15,11 @@
 
 set -euo pipefail
 
+# Chrome / GUIアプリがPipeWireのpulseソケットに確実に接続できるよう
+# PULSE_SERVER を明示する。
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+export PULSE_SERVER="${PULSE_SERVER:-unix:${XDG_RUNTIME_DIR}/pulse/native}"
+
 SESSION="aizunda"
 
 LLAMA_BIN="/home/$USER/llama.cpp/build/bin/llama-server"

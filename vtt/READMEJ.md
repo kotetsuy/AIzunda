@@ -18,7 +18,7 @@ vtt/
 ```
 
 `ttllm` の `/transcribe` に WAV を POST する薄いクライアントです。
-WhisperX / torch-ROCm / ctranslate2-rocm は ttllm 側（`~/venv/whisperx-rocm`）が
+WhisperX / torch-ROCm / ctranslate2-rocm は ttllm 側（`~/AIzunda/whisperx-rocm`）が
 抱えているので、vtt 本体では `numpy` / `sounddevice` / `soundfile` / `httpx` だけ入ります。
 
 ## 動作確認済みの構成
@@ -28,15 +28,11 @@ WhisperX / torch-ROCm / ctranslate2-rocm は ttllm 側（`~/venv/whisperx-rocm`�
 | OS | Ubuntu 24.04.4 LTS (PipeWire) |
 | 入力デバイス | USB Composite Device (YunChen, card 1, 48kHz mono) |
 | ttllm 先 | `http://localhost:8001`（`~/AIzunda/ttllm/run.sh`） |
-| WhisperX venv | `~/venv/whisperx-rocm`（torch 2.9.1+rocm7.2.0 / ctranslate2 4.6.2 / faster-whisper 1.2.1） |
+| WhisperX venv | `~/whisperx-rocm/.venv`（torch 2.9.1+rocm7.2.0 / ctranslate2 4.6.2 / faster-whisper 1.2.1） |
 | モデル | `large-v3`（ttllm 側で環境変数指定） |
 
 起こったハマりポイント：
 
-- ttllm の既定 `WHISPERX_VENV` は従来 `~/AIzunda/whisperX-rocm/.venv` を指していましたが、
-  実際に whisperX / torch-ROCm が入っているのは `~/venv/whisperx-rocm` でした。
-  ttllm 側の `install.sh` / `run.sh` を `~/venv/whisperx-rocm` に向けたうえで、
-  `./install.sh` を再実行して fastapi 系を足すと `/transcribe` が 200 を返すようになります。
 - PortAudio 経由で直接 ALSA の USB デバイスを掴むと 16kHz を拒否されるので、
   vtt は自動で 48kHz にフォールバックし、リサンプルは WhisperX（ffmpeg）に任せます。
 
@@ -46,8 +42,8 @@ WhisperX / torch-ROCm / ctranslate2-rocm は ttllm 側（`~/venv/whisperx-rocm`�
   ```bash
   cd ~/AIzunda/ttllm && ./run.sh
   ```
-- `~/venv/whisperx-rocm` に whisperx が入っており、ttllm の `WHISPERX_VENV`
-  がそこを指していること（ttllm の `READMEJ.md` 参照）
+- `~/AIZunda/whisperx-rocm` に whisperx が入っており、ttllm の `WHISPERX_VENV`
+  が`~/AIZunda/whisperx-rocm/.venv`を指していること（ttllm の `READMEJ.md` 参照）
 - `libportaudio2` が入っていること
   ```bash
   sudo apt-get install -y libportaudio2

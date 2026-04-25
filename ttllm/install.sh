@@ -4,7 +4,7 @@ set -euo pipefail
 # Install ttllm bridge dependencies into the whisperX-rocm venv so we share
 # its torch-ROCm / ctranslate2-rocm / whisperx stack.
 
-VENV="${WHISPERX_VENV:-/home/$USER/venv/whisperx-rocm}"
+VENV="${WHISPERX_VENV:-/home/$USER/AIzunda/whisperX-rocm/.venv}"
 
 if [[ ! -x "$VENV/bin/python" ]]; then
     echo "whisperX venv not found at $VENV" >&2
