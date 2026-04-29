@@ -24,26 +24,28 @@ Browser (three-vrm)
 | Path | Role | Port |
 |---|---|---|
 | `voicevox/` | VOICEVOX Engine (Docker, CPU inference) | 50021 |
-| `~/llama.cpp/build/bin/llama-server` | Qwen3.6 inference | 8080 |
+| `~/AIzunda/llama.cpp/build/bin/llama-server` | Qwen3.6 inference | 8080 |
 | `qwen3.6/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf` | LLM weights | — |
 | `ttllm/` | FastAPI bridge (WhisperX + llama.cpp) | 8001 |
 | `three-vrm/` | aiohttp server + VRM viewer (HTML/three-vrm) | 8000 |
 | `vtt/` | CLI PTT mic (optional) | — |
 | `images/` | VRM viewer background (rotates every 5 min) | — |
-| `zundavrm/VRM/` | Zundamon VRM 1.0 model | — |
-| `whisperX-rocm/` | WhisperX ROCm fork (the actual venv lives at `~/venv/whisperx-rocm`) | — |
+| `zundavrm/VRM/Zundamon_2025_VRM10A.vrm` | Zundamon VRM 1.0 model | — |
+| `whisperX-rocm/` | WhisperX ROCm fork (venv at `~/AIzunda/whisperX-rocm/.venv`) | — |
 
 ### Prerequisites
 
 - **OS**: Ubuntu 24.04.4 LTS
-- **GPU**: AMD Ryzen AI Max+ 395 (gfx1151), ROCm 7.2
-- **Python**: 3.10+ (whisperx venv), 3.12 (three-vrm)
-- **Docker**: for VOICEVOX
-- **tmux / google-chrome / curl**: used by the launch script
+- **GPU**: AMD Ryzen AI Max+ 395 / Radeon 8060S (gfx1151, 48GB VRAM)
+- **ROCm**: 7.2.1 (`/opt/rocm`)
+- **Python**: 3.12.3
+- **Docker**: 29.x (for VOICEVOX)
+- **Browser**: Google Chrome (Firefox also works since `AudioContext` is supported)
+- **tmux / curl**: used by the launch script
 
 See each subdirectory's `README.md` for detailed setup:
 `ttllm/README.md` / `vtt/README.md` / `three-vrm/README.md` / `voicevox/README.md` /
-`whisperX-rocm/` (ROCm build steps live in `~/CLAUDE.md`).
+`whisperX-rocm/README.md`.
 
 ## Start / stop everything
 
@@ -126,8 +128,7 @@ instant.
 - Images are auto-discovered from `~/AIzunda/images/*.{jpg,png,webp}`
 - `GET /images_list` returns the file list; `GET /images/<name>` serves them
 - One is picked at page load; **every 5 minutes** it switches to another random image (`zundamon.html`)
-- Drop more images into the directory to add them (no server restart required)
-- Five 1920×1080 landscape shots from Picsum Photos (Unsplash-derived, no attribution required, commercial-use OK) are bundled
+- No images are bundled. Drop more images into the directory to add them (no server restart required)
 
 ### Idle motion
 
@@ -194,8 +195,8 @@ to a natural standing position and bends the elbows about 14° (`zundamon.html`)
 
 All hardcoded paths in shell scripts and Python have been replaced with
 `$USER` / `os.path.expanduser("~/...")`. No `/home/<someone>` remains. To run
-as a different user, just keep the directory layout (`~/AIzunda/`, `~/llama.cpp/`,
-`~/venv/whisperx-rocm/`) and it works.
+as a different user, just keep the directory layout (`~/AIzunda/`,
+`~/AIzunda/llama.cpp/`, `~/AIzunda/whisperX-rocm/.venv/`) and it works.
 
 ## Troubleshooting
 

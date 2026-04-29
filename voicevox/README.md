@@ -2,17 +2,17 @@
 
 ## Overview
 
-The TTS (speech synthesis) component of the AIzunda pipeline. Runs VOICEVOX in
-Docker and exposes an HTTP API that other components call for synthesis.
+The TTS (speech synthesis) component of the AIzunda pipeline.
+VOICEVOX runs in Docker and other components call it via HTTP.
 
 ## Environment
 
 - Docker: 29.4.0
 - Image: `voicevox/voicevox_engine:cpu-ubuntu20.04-latest`
 - API port: `50021`
-- Inference: CPU (to avoid contention with ROCm)
+- Inference: CPU (to avoid contention with the ROCm runtime)
 
-## Launch
+## How to run
 
 ### First-time setup
 
@@ -41,18 +41,18 @@ docker start voicevox_engine
 
 ## Zundamon speaker IDs
 
-| Style   | ID |
-|---------|----|
-| Normal  | 3  |
-| Amaama  | 1  |
-| Tsuntsun| 7  |
-| Sexy    | 5  |
-| Whisper | 22 |
-| Hisohiso| 38 |
-| Heroero | 75 |
-| Namidame| 76 |
+| Style    | ID |
+|----------|----|
+| Normal   | 3  |
+| Sweet    | 1  |
+| Tsundere | 7  |
+| Sexy     | 5  |
+| Whisper  | 22 |
+| Murmur   | 38 |
+| Weak     | 75 |
+| Tearful  | 76 |
 
-## Using the API
+## API usage
 
 Synthesis is a two-step call.
 
@@ -66,7 +66,7 @@ curl -X POST "http://localhost:50021/audio_query" \
   -o query.json
 ```
 
-### 2. synthesis (produce the WAV)
+### 2. synthesis (generate WAV)
 
 ```bash
 curl -X POST "http://localhost:50021/synthesis?speaker=3" \
@@ -103,14 +103,14 @@ synthesize("こんにちは、ずんだもんなのだ！")
 ## Test script
 
 ```bash
-# Default (normal style, Japanese test sentence)
+# Defaults (normal style, Japanese test sentence)
 ./test_voicevox.sh
 
-# Specify text, speaker, and output path
+# Specify text and speaker
 ./test_voicevox.sh "よろしくなのだ" 3 /tmp/test.wav
 ```
 
-## Where this fits in the pipeline
+## Position in the pipeline
 
 ```
 Mic input
@@ -120,13 +120,13 @@ WhisperX (STT) — ~/AIzunda/whisperX-rocm
 llama-server (LLM) — Qwen3.5-35B, localhost:8080
    ↓ reply text
 VOICEVOX Engine (TTS) ← here — localhost:50021
-   ↓ WAV
-TalkingHead (VRM) — browser, lip-sync
+   ↓ WAV audio
+TalkingHead (VRM) — browser-side lip-sync
 ```
 
-## Output format
+## Output spec
 
 - Format: RIFF WAV
 - Sample rate: 24,000 Hz
-- Bit depth: 16 bit
+- Bit depth: 16-bit
 - Channels: mono

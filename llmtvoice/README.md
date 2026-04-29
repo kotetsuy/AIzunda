@@ -1,11 +1,11 @@
 # AIzunda — end-to-end voice-chat pipeline reference
 
 A voice-chat system that runs entirely on an ROCm-capable AMD GPU: mic input in,
-a VRM Zundamon lip-syncing a reply in the browser out. Every component is a
-loosely-coupled HTTP service you can swap independently.
+a Zundamon VRM model lip-syncing the reply in the browser out. Components are
+loosely coupled HTTP services, so you can swap any of them out.
 
-This document is the pipeline-level consolidation of each component README
-(`whisperX-rocm` / `ttllm` / `voicevox` / `three-vrm`).
+This document is the pipeline-level consolidation of each component's
+individual README (`whisperX-rocm` / `ttllm` / `voicevox` / `three-vrm`).
 
 ---
 
@@ -13,13 +13,13 @@ This document is the pipeline-level consolidation of each component README
 
 ```
 ┌──────────────────────┐
-│ Browser (mic input)      │  http://localhost:8000/zundamon.html
-│   MediaRecorder → webm  │
+│ Browser (mic input)        │  http://localhost:8000/zundamon.html
+│   MediaRecorder → webm    │
 └──────────┬────────────┘
            │ multipart POST /voice_chat_speak
            ▼
 ┌──────────────────────┐
-│ three-vrm server (port 8000)│  aiohttp
+│ three-vrm server (port 8000) │  aiohttp
 │ - /voice_chat_speak       │───┐
 │ - /speak                  │   │
 │ - /ws (WebSocket)         │   │
@@ -52,11 +52,11 @@ This document is the pipeline-level consolidation of each component README
            ▼
 ┌──────────────────────┐
 │ three-vrm: viseme conversion │
-│ → WS broadcast             │
+│ → WS broadcast            │
 └──────────┬────────────┘
            ▼
 ┌──────────────────────┐
-│ Browser: playback + lip-sync │
+│ Browser: audio playback + lip-sync │
 │  @pixiv/three-vrm 1.0 expressions │
 │  (aa / ih / ou / ee / oh / nn)│
 └──────────────────────┘
@@ -69,31 +69,31 @@ This document is the pipeline-level consolidation of each component README
 ```
 ~/AIzunda/
 ├── whisperX-rocm/       # STT (WhisperX + CTranslate2-ROCm)
-├── ctranslate2-rocm/    # ROCm/HIP CTranslate2 (built from source)
+├── ctranslate2-rocm/    # CTranslate2 with ROCm/HIP (built from source)
 ├── llama.cpp/           # LLM inference engine (llama-server)
-├── qwen3.6/             # GGUF model storage
+├── qwen3.6/             # GGUF model files
 ├── ttllm/               # WhisperX ↔ llama.cpp bridge (FastAPI)
 ├── voicevox/            # VOICEVOX Docker launch + test scripts
 ├── three-vrm/           # VRM viewer + VOICEVOX relay (aiohttp)
-│   └── TalkingHead/     # browser front-end (zundamon.html)
-├── zundavrm/            # Zundamon VRM model bundle
-└── llmtvoice/           # this README (pipeline reference)
+│   └── TalkingHead/     # Browser front-end (zundamon.html)
+├── zundavrm/            # Zundamon VRM model files
+└── llmtvoice/           # This README (pipeline-level reference)
 ```
 
 ---
 
 ## Required environment
 
-| Item       | Requirement |
-|------------|-------------|
-| OS         | Ubuntu 24.04 LTS |
-| GPU        | AMD Ryzen AI Max+ 395 / Radeon 8060S (gfx1151, 48 GB VRAM) |
-| ROCm       | 7.2.0 (`/opt/rocm`) |
-| Python     | 3.12.3 |
-| Docker     | 29.x (for VOICEVOX) |
-| Node       | not needed (browser loads three.js locally, not from CDN) |
+| Item    | Requirement |
+| ------- | ----------- |
+| OS      | Ubuntu 24.04 LTS |
+| GPU     | AMD Ryzen AI Max+ 395 / Radeon 8060S (gfx1151, 48 GB VRAM) |
+| ROCm    | 7.2.0 (`/opt/rocm`) |
+| Python  | 3.12.3 |
+| Docker  | 29.x (for VOICEVOX) |
+| Node    | not needed (browser uses locally-served three.js, not a CDN) |
 
-ROCm env vars are already set inside each `run.sh`. For manual launches:
+ROCm env vars are set inside each `run.sh`. For manual launches:
 ```bash
 export HSA_OVERRIDE_GFX_VERSION=11.5.1
 export ROCM_PATH=/opt/rocm
@@ -122,7 +122,7 @@ make -j$(nproc) && sudo make install
 cd ~/AIzunda/whisperX-rocm
 uv venv && uv pip install -e .
 
-# Reinstall the ROCm ctranslate2 Python bindings
+# Reinstall the ROCm-flavored ctranslate2 Python bindings
 rm -rf .venv/lib/python3.12/site-packages/ctranslate2*
 export CTRANSLATE2_ROOT=/usr/local
 uv pip install --reinstall pybind11 ~/AIzunda/ctranslate2-rocm/python
@@ -132,37 +132,39 @@ uv pip install --reinstall pybind11 ~/AIzunda/ctranslate2-rocm/python
 Follow llama.cpp's own `CLAUDE.md` / `AGENTS.md`. Build `llama-server` with
 ROCm (HIP) support.
 
-### 4. Add ttllm bridge deps to the whisperX venv
+### 4. Add the ttllm bridge's deps to the WhisperX venv
 ```bash
 cd ~/AIzunda/ttllm && ./install.sh
 ```
 
-### 5. Pull & start VOICEVOX Docker
+### 5. Pull and start VOICEVOX in Docker
 ```bash
 docker pull voicevox/voicevox_engine:cpu-ubuntu20.04-latest
 docker run -d --name voicevox_engine --restart unless-stopped \
   -p 50021:50021 voicevox/voicevox_engine:cpu-ubuntu20.04-latest
 ```
 
-### 6. Place the VRM model
+### 6. Drop in the VRM model
 `~/AIzunda/zundavrm/VRM/Zundamon_2025_VRM10A.vrm`
 
-(Adjust `VRM_DIR` / filename in `three-vrm/server.py` as needed.)
+(If you change the path or filename, update `VRM_DIR` in
+`three-vrm/server.py`.)
 
 ---
 
-## Launch sequence (every run)
+## Daily startup
 
-Start 4 processes in order. Use systemd or tmux if you want them persistent.
+Bring the four processes up in order. For long-running setups, systemd or
+tmux is recommended.
 
-### 1. VOICEVOX (Docker)
+### ① VOICEVOX (Docker)
 ```bash
 docker start voicevox_engine
 # verify
 curl -s http://localhost:50021/version
 ```
 
-### 2. llama-server (LLM)
+### ② llama-server (LLM)
 ```bash
 cd ~/AIzunda/llama.cpp/build/bin
 ./llama-server \
@@ -171,110 +173,110 @@ cd ~/AIzunda/llama.cpp/build/bin
     -ngl 99 -c 8192
 ```
 
-### 3. ttllm bridge (WhisperX + LLM)
+### ③ ttllm bridge (WhisperX + LLM)
 ```bash
 cd ~/AIzunda/ttllm && ./run.sh
 # Swagger UI at http://localhost:8001/docs
-curl -X POST http://localhost:8001/warmup  # recommended: preload WhisperX
+curl -X POST http://localhost:8001/warmup  # preload WhisperX (recommended)
 ```
 
-### 4. three-vrm (VRM viewer + VOICEVOX relay)
+### ④ three-vrm (VRM viewer + VOICEVOX relay)
 ```bash
 cd ~/AIzunda/three-vrm && python3 server.py
 ```
 
-Open `http://localhost:8000/zundamon.html`, **click the page once** (unlocks
-AudioContext and mic permission), and press 🎤 to speak.
+Open `http://localhost:8000/zundamon.html` in a browser, **click once** to
+unlock AudioContext and mic permission, then talk via the 🎤 button at
+bottom-right.
 
 ---
 
-## Ports / endpoints
+## Ports / endpoints summary
 
-| Service      | Port  | Key endpoints |
-|--------------|-------|---------------|
-| VOICEVOX     | 50021 | `/audio_query`, `/synthesis` |
-| llama-server | 8080  | `/v1/chat/completions` (OpenAI-compatible) |
-| ttllm        | 8001  | `/voice_chat`, `/chat`, `/transcribe`, `/warmup`, `/health` |
-| three-vrm    | 8000  | `/zundamon.html`, `/voice_chat_speak`, `/speak`, `/ws`, `/vrm/*` |
+| Service       | Port  | Main endpoints |
+| ------------- | ----- | -------------- |
+| VOICEVOX      | 50021 | `/audio_query`, `/synthesis` |
+| llama-server  | 8080  | `/v1/chat/completions` (OpenAI-compatible) |
+| ttllm         | 8001  | `/voice_chat`, `/chat`, `/transcribe`, `/warmup`, `/health` |
+| three-vrm     | 8000  | `/zundamon.html`, `/voice_chat_speak`, `/speak`, `/ws`, `/vrm/*` |
 
 ### `/voice_chat_speak` (one-shot API)
 
 multipart/form-data:
 
-| Field         | Type            | Default       | Description |
-|---------------|-----------------|---------------|-------------|
-| `audio`       | file            | —             | webm / wav / mp3 / m4a etc. |
-| `speaker_id`  | int             | `3`           | VOICEVOX speaker ID (3 = Normal Zundamon) |
-| `system`      | str             | ttllm default | Override LLM system prompt |
-| `history`     | str (JSON list) | `[]`          | Conversation history |
-| `temperature` | float           | `0.7`         | LLM |
-| `max_tokens`  | int             | `512`         | LLM |
+| Field          | Type            | Default | Description |
+| -------------- | --------------- | ------- | ----------- |
+| `audio`        | file            | —       | webm / wav / mp3 / m4a etc. |
+| `speaker_id`   | int             | `3`     | VOICEVOX speaker ID (3 = normal Zundamon) |
+| `system`       | str             | ttllm default | Override LLM system prompt |
+| `history`      | str (JSON list) | `[]`    | Conversation history |
+| `temperature`  | float           | `0.7`   | LLM |
+| `max_tokens`   | int             | `512`   | LLM |
 
 Response:
 ```json
 {"ok": true, "transcript": "...", "reply": "...", "visemes": 42, "clients": 1}
 ```
 
-Synthesized audio + viseme data is broadcast over WebSocket to every connected
-client (not included in the HTTP response body).
+The synthesized audio + lip-sync data is broadcast over WebSocket to all
+connected clients (it is **not** in the response body).
 
 ---
 
 ## Browser UI
 
-Built into `zundamon.html`:
+Already wired into `zundamon.html`:
 
-- **🎤 button (bottom-right)**
-  - **Long press (≥ 250 ms)**: records while held, releases to send (PTT)
-  - **Short click**: start recording → click again to send (toggle)
+- **🎤 button at bottom-right**
+  - **Long-press (≥ 250 ms)**: records only while held, sends on release (PTT)
+  - **Short click**: starts recording → click again to send (toggle)
 - **Subtitles**
-  - Pale blue: user speech transcription
-  - White: Zundamon's reply
+  - Pale blue: user transcript
+  - White:    Zundamon's reply
 - **Lip-sync**
-  - VRM 1.0 standard expressions `aa / ih / ou / ee / oh / nn` scheduled
-    against `audioCtx.currentTime`
+  - VRM 1.0 standard expressions `aa / ih / ou / ee / oh / nn`,
+    scheduled against `audioCtx.currentTime`
 
-On first visit, **click the page once** to unlock AudioContext and mic permission.
+**Click the page once** on first load to unlock AudioContext and mic permission.
 
 ---
 
 ## Zundamon speaker IDs
 
-| Style     | ID |
-|-----------|----|
-| Normal    | 3  |
-| Amaama    | 1  |
-| Tsuntsun  | 7  |
-| Sexy      | 5  |
-| Whisper   | 22 |
-| Hisohiso  | 38 |
-| Heroero   | 75 |
-| Namidame  | 76 |
+| Style       | ID |
+| ----------- | -- |
+| Normal      | 3  |
+| Sweet       | 1  |
+| Tsundere    | 7  |
+| Sexy        | 5  |
+| Whisper     | 22 |
+| Murmur      | 38 |
+| Weak        | 75 |
+| Tearful     | 76 |
 
-Edit the `SPEAKER_ID` constant at the top of `zundamon.html` to change the
-default.
+You can change the default in `SPEAKER_ID` near the top of `zundamon.html`.
 
 ---
 
 ## Smoke tests
 
 ```bash
-# Service reachability
+# Per-service reachability
 curl -s http://localhost:50021/version
 curl -s http://localhost:8080/health
 curl -s http://localhost:8001/health
 
-# Text → VOICEVOX → VRM lip-sync (via three-vrm)
+# Text → VOICEVOX → VRM lip-sync via three-vrm
 curl -X POST http://localhost:8000/speak \
   -H 'Content-Type: application/json' \
   -d '{"text":"こんにちはなのだ","speaker_id":3}'
 
-# Text-only chat via ttllm (no VRM)
+# Text-only chat through ttllm (no VRM)
 curl -X POST http://localhost:8001/chat \
   -H 'Content-Type: application/json' \
   -d '{"text":"自己紹介してなのだ"}'
 
-# Audio file → STT + LLM + TTS + browser lip-sync
+# Audio file → transcript + LLM reply + synthesis + browser lip-sync
 curl -X POST http://localhost:8000/voice_chat_speak \
   -F "audio=@sample.wav" -F "speaker_id=3"
 ```
@@ -283,61 +285,63 @@ curl -X POST http://localhost:8000/voice_chat_speak \
 
 ## Known issues & caveats
 
-### 1. WhisperX memory fault above 60 seconds
-Happens with ROCm 7.x + PyTorch nightly.
+### 1. WhisperX memory fault past 60 s
+Triggered by ROCm 7.x + PyTorch nightly:
 ```
 Memory access fault by GPU node-1... Reason: Page not present or supervisor privilege.
 ```
-Workaround: chunk to under 60 s on the client, or use
-`clip_timestamps=[0, 60]` via faster-whisper directly. On the browser, just
-stop the `MediaRecorder` before that limit.
+Mitigation: chunk into < 60 s pieces on the client, or use
+`clip_timestamps=[0, 60]` directly with faster-whisper. In the browser, stop
+`MediaRecorder` early to avoid it.
 
-### 2. three.js r170+ two-file layout
-You need both `three.module.js` and `three.core.js` — without the latter,
-Chrome throws the misleading `Failed to fetch dynamically imported module`
-(actually a dependency-resolution failure). Both files must be present in
-`libs/three/`.
+### 2. three.js r170+ is two files
+You must place **both** `three.module.js` and `three.core.js`. Without
+`three.core.js`, Chrome throws the misleading error
+`Failed to fetch dynamically imported module` (the real cause is unresolved
+dependencies). Both must live in `libs/three/`.
 
 ### 3. Stateless
-`/chat`, `/voice_chat`, and `/voice_chat_speak` all forget history. For
-multi-turn conversations, pass prior turns as a JSON list via `history` on
-every call.
+`/chat`, `/voice_chat`, and `/voice_chat_speak` do not retain conversation
+history. For continuous conversation, the caller must send prior turns via
+the `history` field as a JSON list.
 
-### 4. AudioContext / mic permissions
-Browser user-gesture policy requires an initial click. `zundamon.html` shows a
-"click to enable audio" overlay on load; the click both unlocks AudioContext
-and enables the 🎤 button.
+### 4. AudioContext / mic permission
+Browser user-gesture policy requires an initial click. `zundamon.html` shows
+a "click to enable audio" overlay on load; the click unlocks AudioContext
+and activates the 🎤 button at the same time.
 
-### 5. VOICEVOX on CPU
-Deliberate: avoids VRAM contention with ROCm. If long-reply latency matters,
-use `speed_scale` or pre-split the text.
+### 5. VOICEVOX runs on CPU
+The CPU container is intentional — it avoids interference with the ROCm
+runtime. If long-text latency matters, tune `speed_scale` or pre-split the
+text.
 
 ---
 
 ## Possible extensions
 
-- **Persistent conversation history**: maintain a session store on three-vrm
-  and coordinate with the browser
-- **Streaming responses**: use llama.cpp SSE to synthesize per phrase, reducing
-  time-to-first-audio
-- **VAD auto-stop**: run webrtcvad / silero-wasm in the browser so 🎤 long-press
-  isn't needed
-- **Multiple characters**: map `speaker_id` to VRM files, add a character picker
-- **Emotions**: have the LLM emit `<emotion>...</emotion>` and map to VRM 1.0
-  `happy / sad / angry` expressions
+- **Persisted conversation history**: a session store on the three-vrm side,
+  coordinated with the browser
+- **Streaming responses**: leverage llama.cpp's SSE; synthesize per phrase in
+  VOICEVOX to start speaking earlier (cuts time-to-first-audio)
+- **Browser-side VAD**: webrtcvad / silero-wasm to remove the long-press
+  requirement
+- **Multi-character**: bind `speaker_id` to a VRM file and add a character
+  switcher
+- **Emotional expressions**: have the LLM emit `<emotion>...</emotion>` and
+  map it to VRM 1.0's `happy / sad / angry`
 
 ---
 
-## References & licenses
+## References / licenses
 
 - WhisperX: https://github.com/m-bain/whisperX (BSD-4-Clause)
 - CTranslate2: https://github.com/OpenNMT/CTranslate2 (MIT)
 - llama.cpp: https://github.com/ggerganov/llama.cpp (MIT)
-- VOICEVOX: https://voicevox.hiroshiba.jp/ (check terms of use and per-character licensing)
+- VOICEVOX: https://voicevox.hiroshiba.jp/ (check terms of use and per-character licenses)
 - Zundamon VRM: see `~/AIzunda/zundavrm/Zundamon_vn3license_*.pdf`
 - three-vrm: https://github.com/pixiv/three-vrm (MIT)
 
-Component-level READMEs:
+For per-component details:
 - `~/AIzunda/whisperX-rocm/README.md`
 - `~/AIzunda/ttllm/README.md`
 - `~/AIzunda/voicevox/README.md`

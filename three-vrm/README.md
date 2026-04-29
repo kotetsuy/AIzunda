@@ -1,10 +1,9 @@
 # Zundamon three-vrm server
 
 A standalone server that sends VOICEVOX synthesis results to the browser over
-WebSocket and renders a VRM 1.0 Zundamon model with lip-sync via
-`@pixiv/three-vrm`.
+WebSocket and lip-syncs a VRM 1.0 model (Zundamon) using `@pixiv/three-vrm`.
 
-## Directory layout
+## Layout
 
 ```
 ~/AIzunda/three-vrm/
@@ -29,13 +28,14 @@ WebSocket and renders a VRM 1.0 Zundamon model with lip-sync via
   ```
   docker start $(docker ps -aq --filter ancestor=voicevox/voicevox_engine:cpu-ubuntu20.04-latest)
   ```
-- **ttllm bridge** (WhisperX + llama.cpp) on `localhost:8001`
-  (only required for the mic-input flow — see `~/AIzunda/ttllm/run.sh`)
-- **llama-server** on `localhost:8080` (ttllm depends on it)
-- **Zundamon VRM** placed at `~/AIzunda/zundavrm/VRM/Zundamon_2025_VRM10A.vrm`
-  (edit `VRM_DIR` in `server.py` if you want a different location)
+- **ttllm bridge** (WhisperX + llama.cpp) running on `localhost:8001`
+  (only required if you want mic input; `~/AIzunda/ttllm/run.sh`)
+- **llama-server** running on `localhost:8080` (a dependency of ttllm)
+- **Zundamon VRM** placed at
+  `/home/araki/AIzunda/zundavrm/VRM/Zundamon_2025_VRM10A.vrm`
+  (change `VRM_DIR` in `server.py` if your path differs)
 
-## Full pipeline
+## Pipeline overview
 
 ```
 Mic (browser zundamon.html)
@@ -53,18 +53,17 @@ three-vrm: moras → visemes
 Browser: AudioContext playback + three-vrm lip-sync
 ```
 
-## Launch
+## Run
 
 ```bash
 cd ~/AIzunda/three-vrm
 python3 server.py
 ```
 
-Open `http://localhost:8000/zundamon.html` in a browser.
-On the first visit you need to **click the page once** to unlock AudioContext
-(browser user-gesture requirement).
+Open `http://localhost:8000/zundamon.html` in a browser. On first load,
+**click the page once** to unlock AudioContext (user-gesture requirement).
 
-## Trigger audio + lip-sync
+## Trigger speech + lip-sync
 
 ```bash
 curl -X POST http://localhost:8000/speak \
@@ -75,8 +74,8 @@ curl -X POST http://localhost:8000/speak \
 - `text`: text to read
 - `speaker_id`: Zundamon style
   - 3: Normal
-  - 1: Amaama
-  - 7: Tsuntsun
+  - 1: Sweet
+  - 7: Tsundere
   - 22: Whisper
 
 Response:
@@ -84,87 +83,87 @@ Response:
 {"ok": true, "visemes": 40, "clients": 1}
 ```
 
-## How it works
+## Internals
 
 1. `POST /speak` → VOICEVOX `audio_query` → `synthesis` produces WAV
-2. Convert `accent_phrases` moras into `visemes / vtimes / vdurations`
-   - Vowels: a→aa, i→I, u→U, e→E, o→O, N→nn
-   - Consonants: p/b/m→PP, s/z→SS, t/d→DD, k/g→kk, …
-   - Time unit: **milliseconds**
-3. Broadcast a JSON message over WebSocket to every connected client
-4. Browser: Base64 → WAV decode → play with `AudioContext`
-5. Schedule `vrm.expressionManager.setValue(expr, 1.0)` against
-   `audioCtx.currentTime`
+2. From `accent_phrases.moras`, compute `visemes / vtimes / vdurations`
+   - vowels: a→aa, i→I, u→U, e→E, o→O, N→nn
+   - consonants: p/b/m→PP, s/z→SS, t/d→DD, k/g→kk, etc.
+   - time unit: **milliseconds**
+3. Broadcast to all WebSocket clients as JSON
+4. The browser does Base64 → WAV decode → `AudioContext` playback
+5. Schedules against `audioCtx.currentTime` and fires
+   `vrm.expressionManager.setValue(expr, 1.0)` per viseme
 
-Only VRM 1.0 standard expressions `aa / ih / ou / ee / oh / nn` move. Consonants
-briefly close the mouth.
+Only the VRM 1.0 standard expressions `aa / ih / ou / ee / oh / nn` are
+animated. Consonants temporarily close the mouth.
 
 ## Endpoints
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET  | `/zundamon.html` | Viewer (mic button included) |
-| GET  | `/ws` | WebSocket connection |
-| POST | `/speak` | Synthesize + broadcast lip-sync data |
-| POST | `/voice_chat_speak` | Audio → ttllm → VOICEVOX → WS broadcast (one-shot) |
-| GET  | `/vrm/{filename}` | Serve a VRM file |
-| GET  | `/status` | Number of connected clients |
+| GET  | `/zundamon.html`     | Viewer (mic button included) |
+| GET  | `/ws`                | WebSocket connection |
+| POST | `/speak`             | Synthesize + broadcast lip-sync |
+| POST | `/voice_chat_speak`  | Audio → ttllm → VOICEVOX → WS broadcast (one-shot) |
+| GET  | `/vrm/{filename}`    | Serve a VRM file |
+| GET  | `/status`            | Number of connected clients |
 
 ### `/voice_chat_speak` (multipart/form-data)
 
-| Field          | Type            | Default     | Description |
-|----------------|-----------------|-------------|-------------|
-| `audio`        | file            | —           | webm / wav / mp3 / m4a etc. |
-| `speaker_id`   | int             | `3`         | VOICEVOX speaker ID |
+| Field          | Type            | Default | Description |
+| -------------- | --------------- | ------- | ----------- |
+| `audio`        | file            | —       | webm / wav / mp3 / m4a etc. |
+| `speaker_id`   | int             | `3`     | VOICEVOX speaker ID |
 | `system`       | str             | ttllm default | Override LLM system prompt |
-| `history`      | str (JSON list) | `[]`        | Conversation history |
-| `temperature`  | float           | `0.7`       | LLM |
-| `max_tokens`   | int             | `512`       | LLM |
+| `history`      | str (JSON list) | `[]`    | Conversation history |
+| `temperature`  | float           | `0.7`   | LLM |
+| `max_tokens`   | int             | `512`   | LLM |
 
 Response:
 ```json
 {"ok": true, "transcript": "...", "reply": "...", "visemes": 42, "clients": 1}
 ```
 
-Browser example (already wired into the viewer):
+Browser-side example (already wired into the viewer):
 ```javascript
 const fd = new FormData();
 fd.append("audio", blob, "utterance.webm");
 fd.append("speaker_id", "3");
 await fetch("/voice_chat_speak", { method: "POST", body: fd });
-// Response audio plays automatically with lip-sync via WS
+// Response audio plays back automatically with lip-sync over WS
 ```
 
-### Built-in browser mic
+### Browser mic
 
 The 🎤 button at bottom-right:
-- **Long press (≥ 250 ms)**: records only while held (releases to send)
-- **Short click**: start recording → click again to send
-- User speech shows as pale-blue subtitles; Zundamon's reply in white
+- **Long-press (≥ 250 ms)**: records only while held (sends on release)
+- **Short click**: starts recording → click again to send
+- User speech shows as pale-blue subtitles, Zundamon's reply as white subtitles
 
-On first visit, click the page once to unlock AudioContext and mic permission.
+Click the page once on first load to unlock AudioContext and mic permission.
 
-## Gotchas when rebuilding
+## Pitfalls when rebuilding
 
-- **three.js r170+ is a two-file layout**: `three.module.js` + `three.core.js`.
-  Both must be present. Missing `three.core.js` makes Chrome throw the
-  misleading `Failed to fetch dynamically imported module` (actually a
-  dependency-resolution failure).
+- **three.js r170+ ships as two files: `three.module.js` + `three.core.js`.**
+  Both are required.
+  Without `three.core.js`, Chrome throws the misleading error
+  `Failed to fetch dynamically imported module` (the real cause is unresolved
+  dependencies).
   Source: `https://unpkg.com/three@0.180.0/build/three.core.js`
 - `GLTFLoader.js` and `three-vrm.module.min.js` import the bare specifier
-  `"three"`. This is resolved by the `<script type="importmap">` tag in
-  `zundamon.html`.
-- The server sends vtimes / vdurations in **milliseconds**. The browser
-  compares against `audioCtx.currentTime` (seconds), so you must divide by 1000.
+  `"three"`. The `<script type="importmap">` block in `zundamon.html` resolves it.
+- The server's vtimes / vdurations are in **milliseconds**. The browser
+  compares against `audioCtx.currentTime` (seconds), so divide by 1000.
 
-## Known warning (harmless)
+## Known warnings (no functional impact)
 
 ```
 VRMUtils.removeUnnecessaryJoints is deprecated. Use combineSkeletons instead.
 ```
-Scheduled for removal in the next major version.
+Will be removed in the next major release.
 
 ## Next step
 
-Wire mic input → WhisperX (STT) → llama-server Qwen3-35B-A3B → this `/speak`
-endpoint and you have a complete AI Zundamon.
+Mic input → WhisperX (STT) → llama-server Qwen3-35B-A3B → call this `/speak`:
+that pipeline glue script is what turns this into a fully working AI Zundamon.

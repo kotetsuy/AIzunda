@@ -23,26 +23,28 @@ Ubuntu + AMD Ryzen AI Max+ 395 (ROCm) 上で、**音声 → STT → LLM → TTS 
 | パス | 役割 | ポート |
 |---|---|---|
 | `voicevox/` | VOICEVOX Engine (Docker, CPU 推論) | 50021 |
-| `~/llama.cpp/build/bin/llama-server` | Qwen3.6 推論 | 8080 |
+| `~/AIzunda/llama.cpp/build/bin/llama-server` | Qwen3.6 推論 | 8080 |
 | `qwen3.6/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf` | LLM モデル | — |
 | `ttllm/` | FastAPI ブリッジ (WhisperX + llama.cpp) | 8001 |
 | `three-vrm/` | aiohttp サーバ + VRM ビューア (HTML/three-vrm) | 8000 |
 | `vtt/` | CLI PTT マイク (任意) | — |
 | `images/` | VRM ビューア背景 (5 分ごとにローテーション) | — |
-| `zundavrm/VRM/` | ずんだもん VRM1.0 モデル | — |
-| `whisperX-rocm/` | WhisperX の ROCm フォーク (実体の venv は `~/venv/whisperx-rocm`) | — |
+| `zundavrm/VRM/Zundamon_2025_VRM10A.vrm` | ずんだもん VRM 1.0 モデル | — |
+| `whisperX-rocm/` | WhisperX の ROCm フォーク (venv は `~/AIzunda/whisperX-rocm/.venv`) | — |
 
 ### 前提
 
 - **OS** : Ubuntu 24.04.4 LTS
-- **GPU** : AMD Ryzen AI Max+ 395 (gfx1151), ROCm 7.2
-- **Python** : 3.10 以上 (whisperx venv), 3.12 (three-vrm)
-- **Docker** : VOICEVOX 用
-- **tmux / google-chrome / curl** : 起動スクリプトで使用
+- **GPU** : AMD Ryzen AI Max+ 395 / Radeon 8060S (gfx1151、48GB VRAM)
+- **ROCm** : 7.2.1 (`/opt/rocm`)
+- **Python** : 3.12.3
+- **Docker** : 29.x (VOICEVOX 用)
+- **ブラウザ** : Google Chrome (`AudioContext` を使うため Firefox でも可)
+- **tmux / curl** : 起動スクリプトで使用
 
 詳細なセットアップは各サブディレクトリの `READMEJ.md` を参照:
 `ttllm/READMEJ.md` / `vtt/READMEJ.md` / `three-vrm/READMEJ.md` / `voicevox/READMEJ.md` /
-`whisperX-rocm/` (ROCm ビルド手順は `~/CLAUDE.md`)。
+`whisperX-rocm/READMEJ.md`。
 
 ## 一括起動 / 停止
 
@@ -120,8 +122,7 @@ Ubuntu + AMD Ryzen AI Max+ 395 (ROCm) 上で、**音声 → STT → LLM → TTS 
 - 画像は `~/AIzunda/images/*.{jpg,png,webp}` を自動検出
 - `GET /images_list` でファイル一覧、`GET /images/<name>` で配信
 - ページ読み込み時に 1 枚選択、**5 分ごと**にランダムで別の画像に切替 (`zundamon.html`)
-- 画像を追加したい場合はディレクトリに放り込むだけ (サーバ再起動不要)
-- Picsum Photos (Unsplash 由来、帰属不要、商用可) から 1920×1080 の風景 5 枚を同梱
+- 画像は同梱されていません。追加する場合はディレクトリに放り込むだけ (サーバ再起動不要)
 
 ### Idle モーション
 
